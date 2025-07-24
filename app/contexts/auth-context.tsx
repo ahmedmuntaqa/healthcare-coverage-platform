@@ -3,7 +3,8 @@
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth"
-import { app } from "@/lib/firebase"
+import { app, db } from "@/lib/firebase"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 
 export interface User {
   id: string
@@ -40,12 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const auth = getAuth(app)
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Try to get extra profile info from localStorage
-        const savedUser = localStorage.getItem("userProfile:" + firebaseUser.uid)
-        if (savedUser) {
-          setUser(JSON.parse(savedUser))
+        // Try to get extra profile info from Firestore
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as User)
         } else {
           setUser({
             id: firebaseUser.uid,
@@ -68,10 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password)
       const firebaseUser = result.user
-      // Try to get extra profile info from localStorage
-      const savedUser = localStorage.getItem("userProfile:" + firebaseUser.uid)
-      if (savedUser) {
-        setUser(JSON.parse(savedUser))
+      // Try to get extra profile info from Firestore
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid))
+      if (userDoc.exists()) {
+        setUser(userDoc.data() as User)
       } else {
         setUser({
           id: firebaseUser.uid,
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, userData.email, userData.password)
       const firebaseUser = result.user
-      // Save extra profile info in localStorage (simulate Firestore)
+      // Save extra profile info in Firestore
       const profile: User = {
         id: firebaseUser.uid,
         email: userData.email,
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: userData.role,
         cpsoNumber: userData.cpsoNumber,
       }
-      localStorage.setItem("userProfile:" + firebaseUser.uid, JSON.stringify(profile))
+      await setDoc(doc(db, "users", firebaseUser.uid), profile)
       setUser(profile)
     } catch (err) {
       setUser(null)
@@ -122,8 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
     const updatedUser = { ...user, ...data }
     setUser(updatedUser)
-    // Update localStorage profile
-    localStorage.setItem("userProfile:" + user.id, JSON.stringify(updatedUser))
+    // Update Firestore profile
+    await setDoc(doc(db, "users", user.id), updatedUser)
   }
 
   return (
@@ -137,7 +138,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
       }}
     >
-      {loading ? null : children}
+      {loading ? (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 48, height: 48, border: "4px solid #3b82f6", borderTop: "4px solid transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   )
 }

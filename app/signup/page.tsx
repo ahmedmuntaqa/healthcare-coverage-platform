@@ -21,7 +21,6 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
     role: "" as "Physician" | "Surgeon" | "Physician Assistant" | "Nurse" | "",
-    cpsoNumber: "",
   })
   const [error, setError] = useState("")
   const { signup, loading } = useAuth()
@@ -47,10 +46,7 @@ export default function SignupPage() {
       return
     }
 
-    if ((formData.role === "Physician" || formData.role === "Surgeon") && !formData.cpsoNumber) {
-      setError("CPSO Number is required for Physicians and Surgeons")
-      return
-    }
+
 
     try {
       await signup({
@@ -58,15 +54,21 @@ export default function SignupPage() {
         email: formData.email,
         password: formData.password,
         role: formData.role,
-        cpsoNumber: formData.cpsoNumber || undefined,
+      })
+      setFormData({
+        fullName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        role: "",
       })
       router.push("/dashboard")
-    } catch (err) {
-      setError("Failed to create account. Please try again.")
+    } catch (err: any) {
+      setError(err?.message || "Failed to create account. Please try again.")
     }
   }
 
-  const showCPSOField = formData.role === "Physician" || formData.role === "Surgeon"
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
@@ -113,7 +115,7 @@ export default function SignupPage() {
 
             <div className="space-y-2">
               <Label htmlFor="role">Role *</Label>
-              <Select onValueChange={(value) => setFormData({ ...formData, role: value as any })}>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as any })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
@@ -126,18 +128,7 @@ export default function SignupPage() {
               </Select>
             </div>
 
-            {showCPSOField && (
-              <div className="space-y-2">
-                <Label htmlFor="cpsoNumber">CPSO Number *</Label>
-                <Input
-                  id="cpsoNumber"
-                  value={formData.cpsoNumber}
-                  onChange={(e) => setFormData({ ...formData, cpsoNumber: e.target.value })}
-                  placeholder="Enter your CPSO number"
-                  required
-                />
-              </div>
-            )}
+
 
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
@@ -147,6 +138,7 @@ export default function SignupPage() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter your password"
+                autoComplete="new-password"
                 required
               />
             </div>
@@ -159,11 +151,12 @@ export default function SignupPage() {
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 placeholder="Confirm your password"
+                autoComplete="new-password"
                 required
               />
             </div>
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading} aria-busy={loading}>
               {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
